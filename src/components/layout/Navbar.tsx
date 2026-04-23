@@ -16,7 +16,8 @@ import {
     UserCircle,
     ArrowLeftFromLine,
     ArrowRightFromLine,
-    Disc
+    Disc,
+    LayoutGrid
 } from "lucide-react";
 
 import SearchModal from "@/components/ui/SearchModal";
@@ -32,6 +33,7 @@ const mainMenu = [
 const playlistMenu = [
     { href: "/siswa", label: "Data Siswa", icon: Users },
     { href: "/jadwal", label: "Jadwal", icon: Calendar },
+    { href: "/bangku", label: "Denah Bangku", icon: LayoutGrid },
     { href: "/pengumuman", label: "Papan Info", icon: Megaphone },
     { href: "/galeri", label: "Galeri", icon: ImageIcon },
     { href: "/wali-kelas", label: "Wali Kelas", icon: UserCircle },
@@ -233,6 +235,7 @@ export default function Navbar() {
                 <NavItem item={mainMenu[1]} isMobile /> {/* Cari */}
                 <NavItem item={playlistMenu[0]} isMobile /> {/* Siswa (Data Siswa) */}
                 <NavItem item={playlistMenu[1]} isMobile /> {/* Jadwal */}
+                <NavItem item={playlistMenu[2]} isMobile /> {/* Bangku */}
                 <NavItem item={{ href: "/galeri", label: "Galeri", icon: ImageIcon }} isMobile />
                 <NavItem item={{ href: "/pengumuman", label: "Info", icon: Megaphone }} isMobile />
                 <NavItem item={{ href: "/profil", label: "Profil", icon: UserCircle }} isMobile />
