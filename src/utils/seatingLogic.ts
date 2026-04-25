@@ -7,7 +7,7 @@ export const RIGGED_CONFIG = {
   // Kalau true, sistem bakal ngikutin hardcode ini, bodo amat sama hasil acak.
   // Walau temen/admin klik generate dari dashboard, posisi kalian berdua absolut.
   enabled: true, // SELALU AKTIF — siapapun yg generate, placements di bawah ini bakal kepake
-  probability: 0.3, // 70% kemungkinan manipulasi bakal kejadian. 30% sisanya murni ngacak total.
+  probability: 0.4, // 70% kemungkinan manipulasi bakal kejadian. 30% sisanya murni ngacak total.
 
   // --- PANDUAN INDEX MEJA (0-31) ---
   // | 0, 1 |   | 2, 3 |   | 4, 5 |   | 6, 7 |  -> BARIS 1 (Depan)
