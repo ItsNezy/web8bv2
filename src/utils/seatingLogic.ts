@@ -6,7 +6,8 @@ export const RIGGED_CONFIG = {
   // ==========================================
   // Kalau true, sistem bakal ngikutin hardcode ini, bodo amat sama hasil acak.
   // Walau temen/admin klik generate dari dashboard, posisi kalian berdua absolut.
-  enabled: false,
+  enabled: true, // SELALU AKTIF — siapapun yg generate, placements di bawah ini bakal kepake
+  probability: 0.3, // 70% kemungkinan manipulasi bakal kejadian. 30% sisanya murni ngacak total.
 
   // --- PANDUAN INDEX MEJA (0-31) ---
   // | 0, 1 |   | 2, 3 |   | 4, 5 |   | 6, 7 |  -> BARIS 1 (Depan)
@@ -18,9 +19,44 @@ export const RIGGED_CONFIG = {
   // Kasus: Zicho mau duduk sama Anin di pojok KIRI atas (Baris 1, Meja 1).
   // Anin Kiri -> Index 0 | Zicho Kanan -> Index 1
   placements: {
-    2: 5,  // ANIN (KIRI)
-    3: 16, // me (KANAN)
-  }
+    // 2: 5,  // ANIN (KIRI) (Lu bisa uncomment kalau mau dipake lagi)
+    // 3: 16, // me (KANAN)
+  },
+
+  // Pasangan yang SELALU BARENG, tapi nyari bangku yg kosong secara acak
+  // Format: [ID_Siswa_1, ID_Siswa_2]
+  pairs: [
+    [5, 16], // Anin (5) dan lu (16) bakal selalu sebangku, tapi bisa di meja mana aja.
+  ],
+
+  // ==========================
+  // ANTI-PASANGAN (BLACKLIST)
+  // ==========================
+  // Probability terpisah khusus blacklist
+  blacklistProbability: 1, // 100% kemungkinan lu GAK bakal duduk sama orang di bawah ini
+  blacklistPairs: [
+    // --- BLACKLIST LU (16) ---
+    [16, 13], // Diandra
+    [16, 3],  // Afifah
+    [16, 12], // Desta
+    [16, 19], // Khansa
+    [16, 26], // Nury
+    [16, 30], // Septika
+
+    // --- BLACKLIST ANIN (5) ---
+    // Anin gak mau duduk sama cowok kecuali lu (16) dan Jovan (18)
+    [5, 1],  // Adrian
+    [5, 4],  // Albert
+    [5, 6],  // Anugra
+    [5, 11], // Daffa
+    [5, 14], // Diko
+    [5, 15], // Dita
+    [5, 20], // Lionel
+    [5, 22], // Vino
+    [5, 23], // Nadzril
+    [5, 29], // Satria
+    [5, 31], // Zicho
+  ]
 };
 
 export function generateKocokan(priorityIds: number[], forceRigged: boolean = false, customPlacements?: Record<number, number>) {
@@ -29,13 +65,69 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
 
   // 1. Terapkan RIGGED
   if (RIGGED_CONFIG.enabled || forceRigged) {
-    // Kalau sengaja masukin password ZICHO (forceRigged), pake customPlacements dari UI (kalau kosong ya kosong).
-    // Kalau cuma dari kode biasa, pake RIGGED_CONFIG.placements
-    const placementsToUse = forceRigged ? (customPlacements || {}) : RIGGED_CONFIG.placements;
+    // Cek probabilitas manipulasi (kalau pake backdoor, pasti 100%)
+    const prob = RIGGED_CONFIG.probability ?? 1;
+    const isRiggingActive = forceRigged || (Math.random() <= prob);
 
-    for (const [pos, id] of Object.entries(placementsToUse)) {
-      const student = students.find(s => s.id === id);
-      if (student) seats[Number(pos)] = student;
+    if (isRiggingActive) {
+      // Kalau sengaja masukin password ZICHO (forceRigged), pake customPlacements dari UI (kalau kosong ya kosong).
+      // Kalau cuma dari kode biasa, pake RIGGED_CONFIG.placements
+      const placementsToUse = forceRigged ? (customPlacements || {}) : RIGGED_CONFIG.placements;
+
+      for (const [pos, id] of Object.entries(placementsToUse)) {
+        const student = students.find(s => s.id === Number(id));
+        if (student) seats[Number(pos)] = student;
+      }
+
+      // Terapkan Pairs (Pasangan Duduk)
+      if (RIGGED_CONFIG.pairs) {
+        // Acak urutan masangannya biar fair kalau ada banyak pasangan
+        const pairsToPlace = [...RIGGED_CONFIG.pairs].sort(() => Math.random() - 0.5);
+        for (const [id1, id2] of pairsToPlace) {
+          // Cek apakah ada yang prioritas di pasangan ini
+          const isPriorityPair = priorityIds.includes(id1) || priorityIds.includes(id2);
+
+          // Cari meja yang dua-duanya (kiri & kanan) masih kosong
+          let emptyDesks = [];
+          for (let i = 0; i < 32; i += 2) {
+            if (seats[i] === null && seats[i + 1] === null) {
+              if (isPriorityPair) {
+                // Kalau prioritas, cuma boleh di baris depan (0,2,4,6)
+                if (i < 8) emptyDesks.push(i);
+              } else {
+                emptyDesks.push(i);
+              }
+            }
+          }
+
+          // Kalau prioritas tapi depan udah penuh (apes), yaudah cari bangku mana aja yg kosong
+          if (emptyDesks.length === 0 && isPriorityPair) {
+            for (let i = 0; i < 32; i += 2) {
+              if (seats[i] === null && seats[i + 1] === null) {
+                emptyDesks.push(i);
+              }
+            }
+          }
+
+          if (emptyDesks.length > 0) {
+            // Pilih satu meja kosong secara acak
+            const chosenIdx = emptyDesks[Math.floor(Math.random() * emptyDesks.length)];
+            const s1 = students.find(s => s.id === id1);
+            const s2 = students.find(s => s.id === id2);
+
+            if (s1 && s2) {
+              // Acak siapa yang duduk di kiri dan siapa yang di kanan
+              if (Math.random() > 0.5) {
+                seats[chosenIdx] = s1;
+                seats[chosenIdx + 1] = s2;
+              } else {
+                seats[chosenIdx] = s2;
+                seats[chosenIdx + 1] = s1;
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -79,7 +171,6 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     // Kalau kanan kosong
     if (seats[rightIdx] === null) {
       // Usahakan beda gender
-      // Kalau yg kiri tadinya diisi Girl (entah dari sebelum loop ini), kanan Boy.
       const leftGender = seats[leftIdx]?.gender;
       if (leftGender === 'P' && remainingBoys.length > 0) {
         seats[rightIdx] = remainingBoys.pop()!;
@@ -89,6 +180,59 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
         // Sisanya aja sikat
         if (remainingBoys.length > 0) seats[rightIdx] = remainingBoys.pop()!;
         else if (remainingGirls.length > 0) seats[rightIdx] = remainingGirls.pop()!;
+      }
+    }
+  }
+
+  // 4. TERAPKAN BLACKLIST (Swap Pass)
+  if (RIGGED_CONFIG.enabled || forceRigged) {
+    const blProb = RIGGED_CONFIG.blacklistProbability ?? 1;
+    const isBlacklistActive = forceRigged || (Math.random() <= blProb);
+
+    if (isBlacklistActive && RIGGED_CONFIG.blacklistPairs && RIGGED_CONFIG.blacklistPairs.length > 0) {
+      for (let i = 0; i < 32; i += 2) {
+        const left = seats[i];
+        const right = seats[i + 1];
+
+        if (left && right) {
+          const isBlacklisted = RIGGED_CONFIG.blacklistPairs.some(p =>
+            (p[0] === left.id && p[1] === right.id) ||
+            (p[0] === right.id && p[1] === left.id)
+          );
+
+          if (isBlacklisted) {
+            // Apes! Mereka sebangku. Kita harus tuker "right" sama orang lain di meja lain yg gendernya SAMA
+            for (let j = 0; j < 32; j++) {
+              if (j === i || j === i + 1) continue; // jangan meja ini
+
+              const candidate = seats[j];
+              if (candidate && candidate.gender === right.gender) {
+                // Pastikan kalau dituker, nggak bikin musuh baru di meja baru
+                const partnerOfJIdx = j % 2 === 0 ? j + 1 : j - 1;
+                const partnerOfJ = seats[partnerOfJIdx];
+
+                // Cek apakah "right" musuhan sama "partnerOfJ"
+                const rightWillConflict = partnerOfJ && RIGGED_CONFIG.blacklistPairs.some(p =>
+                  (p[0] === right.id && p[1] === partnerOfJ.id) ||
+                  (p[0] === partnerOfJ.id && p[1] === right.id)
+                );
+
+                // Cek apakah "candidate" musuhan sama "left"
+                const candidateWillConflict = RIGGED_CONFIG.blacklistPairs.some(p =>
+                  (p[0] === candidate.id && p[1] === left.id) ||
+                  (p[0] === left.id && p[1] === candidate.id)
+                );
+
+                if (!rightWillConflict && !candidateWillConflict) {
+                  // AMAN! Tuker posisi
+                  seats[i + 1] = candidate;
+                  seats[j] = right;
+                  break; // Selesai nuker meja ini
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
