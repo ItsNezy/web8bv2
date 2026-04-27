@@ -7,9 +7,15 @@ export const RIGGED_CONFIG = {
   // Kalau true, sistem bakal ngikutin hardcode ini, bodo amat sama hasil acak.
   // Walau temen/admin klik generate dari dashboard, posisi kalian berdua absolut.
   enabled: true, // SELALU AKTIF — siapapun yg generate, placements di bawah ini bakal kepake
-  probability: 0.4, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate
+  probability: 0.4, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate (0 = mati, 1 = pasti)
   pairsMaxTrigger: 2,          // Pairs & placements cuma aktif untuk N rolling setelah tanggal di bawah. Set ke 0 = selalu aktif.
-  pairsActiveSince: "2026-04-27", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
+  pairsActiveSince: "2026-04-28", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
+  //
+  // MODE KONTROL PAIRS:
+  // "probability"          → Cuma pakai probability. Trigger diabaikan.
+  // "trigger"              → Selama trigger: 100%. Habis trigger: MATI TOTAL (0%).
+  // "trigger+probability"  → Selama trigger: 100%. Habis trigger: jatuh ke probability.
+  pairsMode: "trigger+probability" as "probability" | "trigger" | "trigger+probability",
 
   // --- PANDUAN INDEX MEJA (0-31) ---
   // | 0, 1 |   | 2, 3 |   | 4, 5 |   | 6, 7 |  -> BARIS 1 (Depan)
@@ -54,9 +60,9 @@ export const RIGGED_CONFIG = {
     // --- BLACKLIST ANIN (5) ---
     // Anin gak mau duduk sama cowok kecuali lu (16) dan Jovan (18)
     // [false] = cuma blokir SEBANGKU aja, bukan radius 3x3 (biar ga impossible)
-    [5, 1,  false], // Adrian
-    [5, 4,  false], // Albert
-    [5, 6,  false], // Anugra
+    [5, 1, false], // Adrian
+    [5, 4, false], // Albert
+    [5, 6, false], // Anugra
     [5, 11, false], // Daffa
     [5, 14, false], // Diko
     [5, 15, false], // Dita
@@ -82,7 +88,7 @@ function isAdjacent(idx1: number, idx2: number, radiusMode: boolean) {
   return Math.abs(row1 - row2) <= 1 && Math.abs(col1 - col2) <= 1;
 }
 
-export function generateKocokan(priorityIds: number[], forceRigged: boolean = false, customPlacements?: Record<number, number>, pairsActive: boolean = true) {
+export function generateKocokan(priorityIds: number[], forceRigged: boolean = false, customPlacements?: Record<number, number>, pairsProbability: number = 1) {
   // Output array 32 nulls
   const seats: (Student | null)[] = Array(32).fill(null);
 
@@ -101,8 +107,9 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     const isRiggingActive = forceRigged || (Math.random() <= prob);
 
     if (isRiggingActive) {
-      // Placements & Pairs hanya jalan kalau pairsActive = true
-      if (pairsActive) {
+      // Placements & Pairs hanya jalan kalau pairsProbability > 0
+      const shouldApplyPairs = forceRigged || (Math.random() <= pairsProbability);
+      if (shouldApplyPairs) {
         // Kalau sengaja masukin password ZICHO (forceRigged), pake customPlacements dari UI (kalau kosong ya kosong).
         // Kalau cuma dari kode biasa, pake RIGGED_CONFIG.placements
         const placementsToUse = forceRigged ? (customPlacements || {}) : RIGGED_CONFIG.placements;
@@ -236,7 +243,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     if (isBlacklistActive && RIGGED_CONFIG.blacklistPairs && RIGGED_CONFIG.blacklistPairs.length > 0) {
       let hasConflict = true;
       let loops = 0;
-      
+
       // Kita loop terus sampe gada konflik atau maksimal 10x biar ga infinite loop
       while (hasConflict && loops < 10) {
         hasConflict = false;
@@ -263,11 +270,11 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
 
               if (isAdjacent(i, j, pairRadiusMode)) {
                 hasConflict = true; // Ketemu musuh di radius!
-                
+
                 // Cari tumbal (s3) di bangku lain yang gendernya SAMA dengan s2 buat dituker
                 for (let k = 0; k < 32; k++) {
                   if (k === i || k === j) continue;
-                  
+
                   const s3 = seats[k];
                   if (s3 && s3.id !== -1 && s3.gender === s2.gender) {
                     // Tuker s2 (di bangku j) dengan s3 (di bangku k)

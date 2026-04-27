@@ -29,9 +29,9 @@ export async function POST(req: NextRequest) {
   const isSuperAdmin = authVal === "super_admin";
 
   const data = await req.json();
-  const { priorityIds, customPlacements } = data as { 
-    priorityIds?: number[], 
-    customPlacements?: {deskIndex: number, studentId: number}[] 
+  const { priorityIds, customPlacements } = data as {
+    priorityIds?: number[],
+    customPlacements?: { deskIndex: number, studentId: number }[]
   };
 
   const customMap: Record<number, number> = {};
@@ -56,18 +56,32 @@ export async function POST(req: NextRequest) {
   const pIds = priorities.map((p: any) => p.studentId);
 
   // Hitung berapa kali udah di-generate SEJAK tanggal reset (buat fitur pairsMaxTrigger)
-  const sinceDate = RIGGED_CONFIG.pairsActiveSince 
-    ? new Date(RIGGED_CONFIG.pairsActiveSince) 
+  const sinceDate = RIGGED_CONFIG.pairsActiveSince
+    ? new Date(RIGGED_CONFIG.pairsActiveSince)
     : new Date(0);
   const totalArrangements = await prisma.seatingArrangement.count({
     where: { createdAt: { gte: sinceDate } }
   });
   const maxTrigger = RIGGED_CONFIG.pairsMaxTrigger ?? 0;
-  // pairsActive = true kalau maxTrigger 0 (selalu aktif) atau masih dalam jatah rolling
-  const pairsActive = maxTrigger === 0 || totalArrangements < maxTrigger;
+  const triggerExhausted = maxTrigger > 0 && totalArrangements >= maxTrigger;
+  const pairsMode = RIGGED_CONFIG.pairsMode ?? "probability";
+  const prob = RIGGED_CONFIG.probability ?? 1;
+
+  // Hitung probabilitas pairs efektif berdasarkan mode
+  let effectivePairsProbability: number;
+  if (pairsMode === "probability") {
+    // Cuma pakai probability, trigger diabaikan
+    effectivePairsProbability = prob;
+  } else if (pairsMode === "trigger") {
+    // Selama trigger: 100%. Habis trigger: MATI TOTAL (0%)
+    effectivePairsProbability = triggerExhausted ? 0 : 1;
+  } else {
+    // "trigger+probability": Selama trigger: 100%. Habis trigger: jatuh ke probability
+    effectivePairsProbability = triggerExhausted ? prob : 1;
+  }
 
   // Kocok
-  const newSeats = generateKocokan(pIds, isSuperAdmin, customMap, pairsActive);
+  const newSeats = generateKocokan(pIds, isSuperAdmin, customMap, effectivePairsProbability);
 
   // Save
   const saved = await prisma.seatingArrangement.create({
