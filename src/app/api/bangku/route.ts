@@ -55,8 +55,19 @@ export async function POST(req: NextRequest) {
   const priorities = await prisma.priorityStudent.findMany();
   const pIds = priorities.map((p: any) => p.studentId);
 
+  // Hitung berapa kali udah di-generate SEJAK tanggal reset (buat fitur pairsMaxTrigger)
+  const sinceDate = RIGGED_CONFIG.pairsActiveSince 
+    ? new Date(RIGGED_CONFIG.pairsActiveSince) 
+    : new Date(0);
+  const totalArrangements = await prisma.seatingArrangement.count({
+    where: { createdAt: { gte: sinceDate } }
+  });
+  const maxTrigger = RIGGED_CONFIG.pairsMaxTrigger ?? 0;
+  // pairsActive = true kalau maxTrigger 0 (selalu aktif) atau masih dalam jatah rolling
+  const pairsActive = maxTrigger === 0 || totalArrangements < maxTrigger;
+
   // Kocok
-  const newSeats = generateKocokan(pIds, isSuperAdmin, customMap);
+  const newSeats = generateKocokan(pIds, isSuperAdmin, customMap, pairsActive);
 
   // Save
   const saved = await prisma.seatingArrangement.create({
