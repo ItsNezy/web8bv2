@@ -10,17 +10,13 @@ export default function AdminBangkuPage() {
   const [priorities, setPriorities] = useState<number[]>([]);
   const [customPlacements, setCustomPlacements] = useState<{ deskIndex: number, studentId: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
-    // Cek auth aja dari fetch GET
     fetch("/api/bangku")
       .then(res => res.json())
       .then(data => {
-        if (!data.error) {
-          // kalau ngga eror brti sebenernya API bangku GET bs diakses siapa aja
-          // auth cuma buat nentuin menu setting kebuka atau engga.
-          // tp gpp kita bikin simple aja. 
-        }
         if (data.priorityIds) setPriorities(data.priorityIds);
       })
       .finally(() => setLoading(false));
@@ -49,7 +45,12 @@ export default function AdminBangkuPage() {
         customPlacements: isSuperRole ? customPlacements : []
       })
     });
+    const data = await res.json();
     if (res.ok) {
+      if (data.debugLog) {
+        setDebugLog(data.debugLog);
+        setShowDebug(true);
+      }
       alert("Ud kelar diacak! Liat hasilnya di /bangku");
     } else {
       alert("Gagal. Lu beneran admin kah?");
@@ -156,6 +157,56 @@ export default function AdminBangkuPage() {
       >
         🎲 GENERATE BANGKU BARU
       </button>
+
+      {/* DEVELOPER CONSOLE — cuma muncul buat super admin */}
+      {isSuperRole && (
+        <div className="mt-8">
+          <button 
+            onClick={() => setShowDebug(!showDebug)}
+            className="flex items-center gap-2 text-sm font-mono text-yellow-400 hover:text-yellow-300 transition-colors"
+          >
+            <span>{showDebug ? '▼' : '▶'}</span>
+            <span>🔧 Developer Console {debugLog.length > 0 ? `(${debugLog.length} logs)` : ''}</span>
+          </button>
+          
+          {showDebug && (
+            <div className="mt-2 bg-[#0d1117] border border-yellow-900/50 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-[#161b22] border-b border-yellow-900/30">
+                <span className="text-xs font-mono text-yellow-500">ROLLING DEBUG LOG</span>
+                <button 
+                  onClick={() => setDebugLog([])} 
+                  className="text-xs text-gray-500 hover:text-red-400 font-mono"
+                >
+                  CLEAR
+                </button>
+              </div>
+              <div className="p-3 max-h-[500px] overflow-y-auto font-mono text-xs leading-relaxed">
+                {debugLog.length === 0 ? (
+                  <p className="text-gray-600 italic">Belum ada log. Klik Generate dulu.</p>
+                ) : (
+                  debugLog.map((line, i) => (
+                    <div 
+                      key={i} 
+                      className={`py-0.5 ${
+                        line.includes('✅') ? 'text-green-400' :
+                        line.includes('❌') ? 'text-red-400' :
+                        line.includes('⚠️') ? 'text-yellow-400' :
+                        line.includes('🔄') ? 'text-cyan-400' :
+                        line.includes('⏭️') ? 'text-gray-500' :
+                        line.includes('[ROUTE]') ? 'text-purple-400' :
+                        line.includes('===') ? 'text-white font-bold' :
+                        'text-gray-400'
+                      }`}
+                    >
+                      {line}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

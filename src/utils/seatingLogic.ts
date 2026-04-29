@@ -9,7 +9,7 @@ export const RIGGED_CONFIG = {
   enabled: true, // SELALU AKTIF — siapapun yg generate, placements di bawah ini bakal kepake
   probability: 0.4, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate (0 = mati, 1 = pasti)
   pairsMaxTrigger: 2,          // Pairs & placements cuma aktif untuk N rolling setelah tanggal di bawah. Set ke 0 = selalu aktif.
-  pairsActiveSince: "2026-04-27", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
+  pairsActiveSince: "2026-04-29", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
   //
   // MODE KONTROL PAIRS:
   // "probability"          → Cuma pakai probability. Trigger diabaikan.
@@ -89,6 +89,14 @@ function isAdjacent(idx1: number, idx2: number, radiusMode: boolean) {
 }
 
 export function generateKocokan(priorityIds: number[], forceRigged: boolean = false, customPlacements?: Record<number, number>, pairsProbability: number = 1) {
+  const debugLog: string[] = [];
+  const log = (msg: string) => debugLog.push(`[${new Date().toISOString().slice(11,19)}] ${msg}`);
+
+  log(`=== MULAI GENERATE ==`);
+  log(`pairsProbability: ${pairsProbability}`);
+  log(`forceRigged: ${forceRigged}`);
+  log(`priorityIds: [${priorityIds.join(', ')}]`);
+
   // Output array 32 nulls
   const seats: (Student | null)[] = Array(32).fill(null);
 
@@ -100,74 +108,84 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     seats[emptySeatIndex] = { id: -1, gender: 'L', nama: 'DUMMY' } as any;
   }
 
-  // 1. Terapkan RIGGED
+  // 1. Terapkan RIGGED (Placements & Pairs)
+  // FIX BUG #1 "Double Gate": Dulu ada 2 gate (probability lalu trigger).
+  // Sekarang cuma 1 gate: pairsProbability yang udah dihitung di route.ts.
+  // Selama trigger aktif → pairsProbability = 1 (100% pasti).
+  // Trigger habis → pairsProbability = probability dari config (misal 0.4).
+  let pairsApplied = false;
+
   if (RIGGED_CONFIG.enabled || forceRigged) {
-    // Cek probabilitas manipulasi (kalau pake backdoor, pasti 100%)
-    const prob = RIGGED_CONFIG.probability ?? 1;
-    const isRiggingActive = forceRigged || (Math.random() <= prob);
+    const rollDice = Math.random();
+    // forceRigged (super admin) TIDAK bypass probability! Cuma nentuin sumber placements.
+    const shouldApplyPairs = rollDice <= pairsProbability;
+    log(`Pairs roll: ${rollDice.toFixed(4)} <= ${pairsProbability} ? ${shouldApplyPairs ? 'YA' : 'TIDAK'}`);
 
-    if (isRiggingActive) {
-      // Placements & Pairs hanya jalan kalau pairsProbability > 0
-      const shouldApplyPairs = forceRigged || (Math.random() <= pairsProbability);
-      if (shouldApplyPairs) {
-        // Kalau sengaja masukin password ZICHO (forceRigged), pake customPlacements dari UI (kalau kosong ya kosong).
-        // Kalau cuma dari kode biasa, pake RIGGED_CONFIG.placements
-        const placementsToUse = forceRigged ? (customPlacements || {}) : RIGGED_CONFIG.placements;
+    if (shouldApplyPairs) {
+      pairsApplied = true;
 
-        for (const [pos, id] of Object.entries(placementsToUse)) {
-          const student = students.find(s => s.id === Number(id));
-          if (student) seats[Number(pos)] = student;
-        }
-
-        // Terapkan Pairs (Pasangan Duduk)
-        // Acak urutan masangannya biar fair kalau ada banyak pasangan
-        const pairsToPlace = [...RIGGED_CONFIG.pairs].sort(() => Math.random() - 0.5);
-        for (const [id1, id2] of pairsToPlace) {
-          // Cek apakah ada yang prioritas di pasangan ini
-          const isPriorityPair = priorityIds.includes(id1) || priorityIds.includes(id2);
-
-          // Cari meja yang dua-duanya (kiri & kanan) masih kosong
-          let emptyDesks = [];
-          for (let i = 0; i < 32; i += 2) {
-            if (seats[i] === null && seats[i + 1] === null) {
-              if (isPriorityPair) {
-                // Kalau prioritas, cuma boleh di baris depan (0,2,4,6)
-                if (i < 8) emptyDesks.push(i);
-              } else {
-                emptyDesks.push(i);
-              }
-            }
-          }
-
-          // Kalau prioritas tapi depan udah penuh (apes), yaudah cari bangku mana aja yg kosong
-          if (emptyDesks.length === 0 && isPriorityPair) {
-            for (let i = 0; i < 32; i += 2) {
-              if (seats[i] === null && seats[i + 1] === null) {
-                emptyDesks.push(i);
-              }
-            }
-          }
-
-          if (emptyDesks.length > 0) {
-            // Pilih satu meja kosong secara acak
-            const chosenIdx = emptyDesks[Math.floor(Math.random() * emptyDesks.length)];
-            const s1 = students.find(s => s.id === id1);
-            const s2 = students.find(s => s.id === id2);
-
-            if (s1 && s2) {
-              // Acak siapa yang duduk di kiri dan siapa yang di kanan
-              if (Math.random() > 0.5) {
-                seats[chosenIdx] = s1;
-                seats[chosenIdx + 1] = s2;
-              } else {
-                seats[chosenIdx] = s2;
-                seats[chosenIdx + 1] = s1;
-              }
-            }
-          }
+      const placementsToUse = forceRigged ? (customPlacements || {}) : RIGGED_CONFIG.placements;
+      for (const [pos, id] of Object.entries(placementsToUse)) {
+        const student = students.find(s => s.id === Number(id));
+        if (student) {
+          seats[Number(pos)] = student;
+          log(`Placement: ${student.nama} → seat ${pos}`);
         }
       }
+
+      // Terapkan Pairs (Pasangan Duduk)
+      const pairsToPlace = [...RIGGED_CONFIG.pairs].sort(() => Math.random() - 0.5);
+      for (const [id1, id2] of pairsToPlace) {
+        const isPriorityPair = priorityIds.includes(id1) || priorityIds.includes(id2);
+
+        let emptyDesks: number[] = [];
+        for (let i = 0; i < 32; i += 2) {
+          if (seats[i] === null && seats[i + 1] === null) {
+            if (isPriorityPair) {
+              if (i < 8) emptyDesks.push(i);
+            } else {
+              emptyDesks.push(i);
+            }
+          }
+        }
+
+        if (emptyDesks.length === 0 && isPriorityPair) {
+          for (let i = 0; i < 32; i += 2) {
+            if (seats[i] === null && seats[i + 1] === null) {
+              emptyDesks.push(i);
+            }
+          }
+        }
+
+        // FIX: Shuffle emptyDesks biar gak bias ke index tertentu
+        emptyDesks.sort(() => Math.random() - 0.5);
+
+        log(`Pairs [${id1},${id2}]: isPriority=${isPriorityPair}, emptyDesks=[${emptyDesks.join(',')}]`);
+
+        if (emptyDesks.length > 0) {
+          const chosenIdx = emptyDesks[Math.floor(Math.random() * emptyDesks.length)];
+          const s1 = students.find(s => s.id === id1);
+          const s2 = students.find(s => s.id === id2);
+
+          if (s1 && s2) {
+            if (Math.random() > 0.5) {
+              seats[chosenIdx] = s1;
+              seats[chosenIdx + 1] = s2;
+            } else {
+              seats[chosenIdx] = s2;
+              seats[chosenIdx + 1] = s1;
+            }
+            log(`✅ Pairs ditaruh di meja [${chosenIdx},${chosenIdx+1}]: ${seats[chosenIdx]!.nama} | ${seats[chosenIdx+1]!.nama}`);
+          }
+        } else {
+          log(`❌ Pairs [${id1},${id2}]: Gak ada meja kosong!`);
+        }
+      }
+    } else {
+      log(`⏭️ Pairs SKIP (dice gagal)`);
     }
+  } else {
+    log(`⏭️ Rigging DISABLED`);
   }
 
   // Cari siapa aja yg udh ditaruh
@@ -239,10 +257,21 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     const blProb = RIGGED_CONFIG.blacklistProbability ?? 1;
     const radiusMode = RIGGED_CONFIG.blacklistRadiusMode ?? false;
     const isBlacklistActive = forceRigged || (Math.random() <= blProb);
+    log(`Blacklist active: ${isBlacklistActive}, radiusMode: ${radiusMode}`);
 
     if (isBlacklistActive && RIGGED_CONFIG.blacklistPairs && RIGGED_CONFIG.blacklistPairs.length > 0) {
       let hasConflict = true;
       let loops = 0;
+
+      // FIX BUG #4: protectedIds cuma aktif kalau pairs beneran diterapkan
+      const protectedIds = new Set<number>();
+      if (pairsApplied) {
+        for (const [id1, id2] of RIGGED_CONFIG.pairs) {
+          protectedIds.add(id1);
+          protectedIds.add(id2);
+        }
+      }
+      log(`Protected IDs: [${pairsApplied ? Array.from(protectedIds).join(',') : 'kosong (pairs gak aktif)'}]`);
 
       // Kita loop terus sampe gada konflik atau maksimal 10x biar ga infinite loop
       while (hasConflict && loops < 10) {
@@ -257,37 +286,110 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
             const s2 = seats[j];
             if (!s2 || s2.id === -1) continue;
 
-            // Cek blacklist dengan per-pair radius mode
-            // Elemen ke-3 di pair array (opsional) bisa override global radiusMode
             const matchedPair = RIGGED_CONFIG.blacklistPairs.find(p =>
               (p[0] === s1.id && p[1] === s2.id) ||
               (p[0] === s2.id && p[1] === s1.id)
             );
 
             if (matchedPair) {
-              // Kalau pair punya elemen ke-3, pakai itu. Kalau tidak, pakai global radiusMode.
               const pairRadiusMode = matchedPair.length > 2 ? (matchedPair[2] as boolean) : radiusMode;
 
               if (isAdjacent(i, j, pairRadiusMode)) {
-                hasConflict = true; // Ketemu musuh di radius!
+                hasConflict = true;
 
-                // Cari tumbal (s3) di bangku lain yang gendernya SAMA dengan s2 buat dituker
-                for (let k = 0; k < 32; k++) {
+                // Tentukan siapa yang harus DIGESER (yang BUKAN protected)
+                // s2 protected? Geser s1. s1 protected? Geser s2. Dua-duanya protected? Skip.
+                const s2Protected = protectedIds.has(s2.id);
+                const s1Protected = protectedIds.has(s1.id);
+
+                if (s1Protected && s2Protected) {
+                  log(`⚠️ Skip: ${s1.nama} & ${s2.nama} dua-duanya protected`);
+                  hasConflict = false;
+                  continue;
+                }
+
+                // Pilih siapa yang digeser: kalau s2 protected, geser s1 (dan sebaliknya)
+                const moveIdx = s2Protected ? i : j;
+                const stayIdx = s2Protected ? j : i;
+                const moveStudent = seats[moveIdx]!;
+                const stayStudent = seats[stayIdx]!;
+
+                let targetK = -1;
+
+                // Helper: cek apakah posisi k AMAN (gak adjacent ke stayStudent)
+                const isPositionSafe = (k: number) => !isAdjacent(stayIdx, k, pairRadiusMode);
+
+                // FIX: Acak urutan pencarian biar gak selalu pilih orang yang sama!
+                // Tanpa ini, Ekklesia (16) selalu kepilih karena dia cowok pertama
+                // yang bukan musuh Anin di loop k=0..31
+                const searchOrder = Array.from({length: 32}, (_, i) => i).sort(() => Math.random() - 0.5);
+
+                // PRIORITAS 1: Cari orang GENDER SAMA yang BUKAN musuh & BUKAN protected & posisi AMAN
+                for (const k of searchOrder) {
                   if (k === i || k === j) continue;
-
+                  if (!isPositionSafe(k)) continue;
                   const s3 = seats[k];
-                  if (s3 && s3.id !== -1 && s3.gender === s2.gender) {
-                    // Tuker s2 (di bangku j) dengan s3 (di bangku k)
-                    seats[j] = s3;
-                    seats[k] = s2;
-                    break; // Keluar dari loop pencarian s3, lanjut cek konflik baru
+                  if (s3 && s3.id !== -1 && s3.gender === moveStudent.gender && !protectedIds.has(s3.id)) {
+                    const s3IsEnemy = RIGGED_CONFIG.blacklistPairs.some(p =>
+                      (p[0] === stayStudent.id && p[1] === s3.id) || (p[1] === stayStudent.id && p[0] === s3.id)
+                    );
+                    if (!s3IsEnemy) { targetK = k; break; }
                   }
+                }
+
+                // PRIORITAS 2: Cari siapa aja yang bukan musuh & bukan protected & posisi AMAN
+                if (targetK === -1) {
+                  for (const k of searchOrder) {
+                    if (k === i || k === j) continue;
+                    if (!isPositionSafe(k)) continue;
+                    const s3 = seats[k];
+                    if (s3 && s3.id !== -1 && !protectedIds.has(s3.id)) {
+                      const s3IsEnemy = RIGGED_CONFIG.blacklistPairs.some(p =>
+                        (p[0] === stayStudent.id && p[1] === s3.id) || (p[1] === stayStudent.id && p[0] === s3.id)
+                      );
+                      if (!s3IsEnemy) { targetK = k; break; }
+                    }
+                  }
+                }
+
+                // PRIORITAS 3: Kalau buntu total, paksa geser siapa aja (kecuali protected) ke posisi AMAN
+                if (targetK === -1) {
+                  for (const k of searchOrder) {
+                    if (k === i || k === j) continue;
+                    if (!isPositionSafe(k)) continue;
+                    if (seats[k] && seats[k]!.id !== -1 && !protectedIds.has(seats[k]!.id)) {
+                      targetK = k;
+                      break;
+                    }
+                  }
+                }
+
+                // PRIORITAS 4: Kalau BENERAN gak ada posisi aman, yaudah geser kemana aja (terakhir)
+                if (targetK === -1) {
+                  for (const k of searchOrder) {
+                    if (k === i || k === j) continue;
+                    if (seats[k] && seats[k]!.id !== -1 && !protectedIds.has(seats[k]!.id)) {
+                      targetK = k;
+                      break;
+                    }
+                  }
+                }
+
+                if (targetK !== -1) {
+                  const swapTarget = seats[targetK];
+                  log(`🔄 SWAP: ${moveStudent.nama}(seat ${moveIdx}) ↔ ${swapTarget?.nama}(seat ${targetK}) | Karena konflik sama ${stayStudent.nama}(seat ${stayIdx})`);
+                  const temp = seats[moveIdx];
+                  seats[moveIdx] = seats[targetK];
+                  seats[targetK] = temp;
+                } else {
+                  log(`❌ GAGAL swap ${moveStudent.nama}: gak ada kandidat!`);
                 }
               }
             } // end if matchedPair
           }
         }
       }
+      log(`Blacklist swap selesai dalam ${loops} loop`);
     }
   }
 
@@ -296,5 +398,13 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     seats[emptySeatIndex] = null;
   }
 
-  return seats;
+  // Log layout akhir
+  log(`=== LAYOUT AKHIR ===`);
+  for (let i = 0; i < 32; i += 2) {
+    const left = seats[i];
+    const right = seats[i + 1];
+    log(`Meja [${i},${i+1}]: ${left?.nama ?? 'KOSONG'} (${left?.gender ?? '-'}) | ${right?.nama ?? 'KOSONG'} (${right?.gender ?? '-'})`);
+  }
+
+  return { seats, debugLog };
 }

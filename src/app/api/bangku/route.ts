@@ -81,7 +81,14 @@ export async function POST(req: NextRequest) {
   }
 
   // Kocok
-  const newSeats = generateKocokan(pIds, isSuperAdmin, customMap, effectivePairsProbability);
+  const { seats: newSeats, debugLog } = generateKocokan(pIds, isSuperAdmin, customMap, effectivePairsProbability);
+
+  // Tambahin info trigger ke debug
+  debugLog.unshift(
+    `[ROUTE] totalArrangements since ${RIGGED_CONFIG.pairsActiveSince}: ${totalArrangements}`,
+    `[ROUTE] pairsMode: ${pairsMode}, maxTrigger: ${maxTrigger}, triggerExhausted: ${triggerExhausted}`,
+    `[ROUTE] effectivePairsProbability: ${effectivePairsProbability}`,
+  );
 
   // Save
   const saved = await prisma.seatingArrangement.create({
@@ -91,5 +98,5 @@ export async function POST(req: NextRequest) {
     }
   });
 
-  return NextResponse.json({ success: true, arrangement: saved });
+  return NextResponse.json({ success: true, arrangement: saved, debugLog });
 }
