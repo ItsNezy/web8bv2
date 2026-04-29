@@ -7,7 +7,7 @@ export const RIGGED_CONFIG = {
   // Kalau true, sistem bakal ngikutin hardcode ini, bodo amat sama hasil acak.
   // Walau temen/admin klik generate dari dashboard, posisi kalian berdua absolut.
   enabled: true, // SELALU AKTIF — siapapun yg generate, placements di bawah ini bakal kepake
-  probability: 0.4, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate (0 = mati, 1 = pasti)
+  probability: 0.2, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate (0 = mati, 1 = pasti)
   pairsMaxTrigger: 2,          // Pairs & placements cuma aktif untuk N rolling setelah tanggal di bawah. Set ke 0 = selalu aktif.
   pairsActiveSince: "2026-04-29", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
   //
@@ -90,7 +90,7 @@ function isAdjacent(idx1: number, idx2: number, radiusMode: boolean) {
 
 export function generateKocokan(priorityIds: number[], forceRigged: boolean = false, customPlacements?: Record<number, number>, pairsProbability: number = 1) {
   const debugLog: string[] = [];
-  const log = (msg: string) => debugLog.push(`[${new Date().toISOString().slice(11,19)}] ${msg}`);
+  const log = (msg: string) => debugLog.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
 
   log(`=== MULAI GENERATE ==`);
   log(`pairsProbability: ${pairsProbability}`);
@@ -175,7 +175,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
               seats[chosenIdx] = s2;
               seats[chosenIdx + 1] = s1;
             }
-            log(`✅ Pairs ditaruh di meja [${chosenIdx},${chosenIdx+1}]: ${seats[chosenIdx]!.nama} | ${seats[chosenIdx+1]!.nama}`);
+            log(`✅ Pairs ditaruh di meja [${chosenIdx},${chosenIdx + 1}]: ${seats[chosenIdx]!.nama} | ${seats[chosenIdx + 1]!.nama}`);
           }
         } else {
           log(`❌ Pairs [${id1},${id2}]: Gak ada meja kosong!`);
@@ -322,7 +322,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                 // FIX: Acak urutan pencarian biar gak selalu pilih orang yang sama!
                 // Tanpa ini, Ekklesia (16) selalu kepilih karena dia cowok pertama
                 // yang bukan musuh Anin di loop k=0..31
-                const searchOrder = Array.from({length: 32}, (_, i) => i).sort(() => Math.random() - 0.5);
+                const searchOrder = Array.from({ length: 32 }, (_, i) => i).sort(() => Math.random() - 0.5);
 
                 // PRIORITAS 1: Cari orang GENDER SAMA yang BUKAN musuh & BUKAN protected & posisi AMAN
                 for (const k of searchOrder) {
@@ -403,7 +403,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
   for (let i = 0; i < 32; i += 2) {
     const left = seats[i];
     const right = seats[i + 1];
-    log(`Meja [${i},${i+1}]: ${left?.nama ?? 'KOSONG'} (${left?.gender ?? '-'}) | ${right?.nama ?? 'KOSONG'} (${right?.gender ?? '-'})`);
+    log(`Meja [${i},${i + 1}]: ${left?.nama ?? 'KOSONG'} (${left?.gender ?? '-'}) | ${right?.nama ?? 'KOSONG'} (${right?.gender ?? '-'})`);
   }
 
   return { seats, debugLog };

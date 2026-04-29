@@ -12,6 +12,7 @@ export default function AdminBangkuPage() {
   const [loading, setLoading] = useState(true);
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
     fetch("/api/bangku")
@@ -62,6 +63,19 @@ export default function AdminBangkuPage() {
       setPriorities(priorities.filter(p => p !== id));
     } else {
       setPriorities([...priorities, id]);
+    }
+  };
+
+  const handleCopyDebugLog = async () => {
+    if (debugLog.length === 0) return;
+
+    try {
+      await navigator.clipboard.writeText(debugLog.join("\n"));
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 1800);
+    } catch {
+      setCopyStatus("failed");
+      setTimeout(() => setCopyStatus("idle"), 1800);
     }
   };
 
@@ -173,12 +187,21 @@ export default function AdminBangkuPage() {
             <div className="mt-2 bg-[#0d1117] border border-yellow-900/50 rounded-lg overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 bg-[#161b22] border-b border-yellow-900/30">
                 <span className="text-xs font-mono text-yellow-500">ROLLING DEBUG LOG</span>
-                <button 
-                  onClick={() => setDebugLog([])} 
-                  className="text-xs text-gray-500 hover:text-red-400 font-mono"
-                >
-                  CLEAR
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleCopyDebugLog}
+                    disabled={debugLog.length === 0}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 disabled:text-gray-600 disabled:cursor-not-allowed font-mono"
+                  >
+                    {copyStatus === "copied" ? "COPIED!" : copyStatus === "failed" ? "COPY FAILED" : "COPY FULL LOG"}
+                  </button>
+                  <button
+                    onClick={() => setDebugLog([])}
+                    className="text-xs text-gray-500 hover:text-red-400 font-mono"
+                  >
+                    CLEAR
+                  </button>
+                </div>
               </div>
               <div className="p-3 max-h-[500px] overflow-y-auto font-mono text-xs leading-relaxed">
                 {debugLog.length === 0 ? (
