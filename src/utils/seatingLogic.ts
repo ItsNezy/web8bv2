@@ -319,6 +319,17 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                 // Helper: cek apakah posisi k AMAN (gak adjacent ke stayStudent)
                 const isPositionSafe = (k: number) => !isAdjacent(stayIdx, k, pairRadiusMode);
 
+                // Helper: cek apakah swap ke k gak merusak hak priority (baris depan)
+                const isPrioritySafe = (k: number) => {
+                  const sTarget = seats[k];
+                  if (!sTarget || sTarget.id === -1) return false;
+                  const isMovePrio = priorityIds.includes(moveStudent.id);
+                  const isTargetPrio = priorityIds.includes(sTarget.id);
+                  if (isMovePrio && k > 7) return false; // Priority gak boleh dibuang ke belakang
+                  if (!isMovePrio && isTargetPrio && moveIdx > 7) return false; // Non-priority di belakang gak boleh nyomot kursi priority
+                  return true;
+                };
+
                 // FIX: Acak urutan pencarian biar gak selalu pilih orang yang sama!
                 // Tanpa ini, Ekklesia (16) selalu kepilih karena dia cowok pertama
                 // yang bukan musuh Anin di loop k=0..31
@@ -328,6 +339,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                 for (const k of searchOrder) {
                   if (k === i || k === j) continue;
                   if (!isPositionSafe(k)) continue;
+                  if (!isPrioritySafe(k)) continue;
                   const s3 = seats[k];
                   if (s3 && s3.id !== -1 && s3.gender === moveStudent.gender && !protectedIds.has(s3.id)) {
                     const s3IsEnemy = RIGGED_CONFIG.blacklistPairs.some(p =>
@@ -342,6 +354,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                   for (const k of searchOrder) {
                     if (k === i || k === j) continue;
                     if (!isPositionSafe(k)) continue;
+                    if (!isPrioritySafe(k)) continue;
                     const s3 = seats[k];
                     if (s3 && s3.id !== -1 && !protectedIds.has(s3.id)) {
                       const s3IsEnemy = RIGGED_CONFIG.blacklistPairs.some(p =>
@@ -357,6 +370,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                   for (const k of searchOrder) {
                     if (k === i || k === j) continue;
                     if (!isPositionSafe(k)) continue;
+                    if (!isPrioritySafe(k)) continue;
                     if (seats[k] && seats[k]!.id !== -1 && !protectedIds.has(seats[k]!.id)) {
                       targetK = k;
                       break;
@@ -368,6 +382,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                 if (targetK === -1) {
                   for (const k of searchOrder) {
                     if (k === i || k === j) continue;
+                    if (!isPrioritySafe(k)) continue;
                     if (seats[k] && seats[k]!.id !== -1 && !protectedIds.has(seats[k]!.id)) {
                       targetK = k;
                       break;
