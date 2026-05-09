@@ -7,9 +7,9 @@ export const RIGGED_CONFIG = {
   // Kalau true, sistem bakal ngikutin hardcode ini, bodo amat sama hasil acak.
   // Walau temen/admin klik generate dari dashboard, posisi kalian berdua absolut.
   enabled: true, // SELALU AKTIF — siapapun yg generate, placements di bawah ini bakal kepake
-  probability: 0.2, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate (0 = mati, 1 = pasti)
-  pairsMaxTrigger: 2,          // Pairs & placements cuma aktif untuk N rolling setelah tanggal di bawah. Set ke 0 = selalu aktif.
-  pairsActiveSince: "2026-04-29", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
+  probability: 0.1, // Kemungkinan manipulasi bakal kejadian tiap kali di-generate (0 = mati, 1 = pasti)
+  pairsMaxTrigger: 1,          // Pairs & placements cuma aktif untuk N rolling setelah tanggal di bawah. Set ke 0 = selalu aktif.
+  pairsActiveSince: "2026-05-9", // RESET POINT — ganti tanggal ini kalau mau pairs aktif lagi dari awal.
   //
   // MODE KONTROL PAIRS:
   // "probability"          → Cuma pakai probability. Trigger diabaikan.
