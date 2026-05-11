@@ -192,7 +192,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
   const placedIds = new Set(seats.map(s => s?.id).filter(Boolean));
 
   // 2. Taruh Priority (yang belum ada di seats) ke Barisan Depan (0 -> 7) & Tengah Baris 2 (10 -> 13)
-  let frontAvailableIndices = [0, 1, 2, 3, 4, 5, 6, 7].filter(i => seats[i] === null);
+  let frontAvailableIndices = [2, 3, 4, 5, 10, 11, 12, 13].filter(i => seats[i] === null);
   // Shuffle frontAvailable
   frontAvailableIndices.sort(() => Math.random() - 0.5);
 
