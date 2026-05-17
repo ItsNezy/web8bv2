@@ -92,6 +92,8 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
   const debugLog: string[] = [];
   const log = (msg: string) => debugLog.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
 
+  const PRIORITY_SEATS = [2, 3, 4, 5, 10, 11, 12, 13];
+
   log(`=== MULAI GENERATE ==`);
   log(`pairsProbability: ${pairsProbability}`);
   log(`forceRigged: ${forceRigged}`);
@@ -142,7 +144,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
         for (let i = 0; i < 32; i += 2) {
           if (seats[i] === null && seats[i + 1] === null) {
             if (isPriorityPair) {
-              if (i < 8) emptyDesks.push(i);
+              if (PRIORITY_SEATS.includes(i) && PRIORITY_SEATS.includes(i + 1)) emptyDesks.push(i);
             } else {
               emptyDesks.push(i);
             }
@@ -191,8 +193,8 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
   // Cari siapa aja yg udh ditaruh
   const placedIds = new Set(seats.map(s => s?.id).filter(Boolean));
 
-  // 2. Taruh Priority (yang belum ada di seats) ke Barisan Depan (0 -> 7) & Tengah Baris 2 (10 -> 13)
-  let frontAvailableIndices = [2, 3, 4, 5, 10, 11, 12, 13].filter(i => seats[i] === null);
+  // 2. Taruh Priority (yang belum ada di seats) ke Meja Prioritas
+  let frontAvailableIndices = [...PRIORITY_SEATS].filter(i => seats[i] === null);
   // Shuffle frontAvailable
   frontAvailableIndices.sort(() => Math.random() - 0.5);
 
@@ -325,8 +327,12 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                   if (!sTarget || sTarget.id === -1) return false;
                   const isMovePrio = priorityIds.includes(moveStudent.id);
                   const isTargetPrio = priorityIds.includes(sTarget.id);
-                  if (isMovePrio && k > 7) return false; // Priority gak boleh dibuang ke belakang
-                  if (!isMovePrio && isTargetPrio && moveIdx > 7) return false; // Non-priority di belakang gak boleh nyomot kursi priority
+                  
+                  const kIsPrio = PRIORITY_SEATS.includes(k);
+                  const moveIdxIsPrio = PRIORITY_SEATS.includes(moveIdx);
+
+                  if (isMovePrio && !kIsPrio) return false; // Priority gak boleh dibuang ke belakang
+                  if (!isMovePrio && isTargetPrio && !moveIdxIsPrio) return false; // Non-priority di belakang gak boleh nyomot kursi priority
                   return true;
                 };
 
