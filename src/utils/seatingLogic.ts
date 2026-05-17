@@ -38,6 +38,13 @@ export const RIGGED_CONFIG = {
   ],
 
   // ==========================
+  // SUPER PRIORITAS
+  // ==========================
+  // Siswa yang WAJIB duduk di kursi tertentu (diacak dalam list kursi ini)
+  superPriorityIds: [21], // 21 = Mirna
+  superPrioritySeats: [2, 3, 4, 5], // Tengah baris 1
+
+  // ==========================
   // ANTI-PASANGAN (BLACKLIST)
   // ==========================
   // Probability terpisah khusus blacklist
@@ -190,6 +197,27 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
     log(`⏭️ Rigging DISABLED`);
   }
 
+  // 1.5 Taruh Super Prioritas
+  if (RIGGED_CONFIG.enabled || forceRigged) {
+    const superIds = RIGGED_CONFIG.superPriorityIds || [];
+    let availableSuperSeats = (RIGGED_CONFIG.superPrioritySeats || []).filter(i => seats[i] === null);
+    availableSuperSeats.sort(() => Math.random() - 0.5);
+
+    for (const pid of superIds) {
+      if (seats.some(s => s && s.id === pid)) continue; // Kalo udah ditaruh di tempat lain (placements)
+      if (availableSuperSeats.length === 0) {
+        log(`⚠️ Super Priority penuh, ${pid} gagal ditaruh di super seat`);
+        break;
+      }
+      const student = students.find(s => s.id === pid);
+      if (student) {
+        const idx = availableSuperSeats.pop()!;
+        seats[idx] = student;
+        log(`⭐ Super Priority: ${student.nama} → seat ${idx}`);
+      }
+    }
+  }
+
   // Cari siapa aja yg udh ditaruh
   const placedIds = new Set(seats.map(s => s?.id).filter(Boolean));
 
@@ -325,6 +353,17 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                 const isPrioritySafe = (k: number) => {
                   const sTarget = seats[k];
                   if (!sTarget || sTarget.id === -1) return false;
+                  
+                  // Cek Super Priority
+                  const isMoveSuperPrio = RIGGED_CONFIG.superPriorityIds?.includes(moveStudent.id);
+                  const isTargetSuperPrio = RIGGED_CONFIG.superPriorityIds?.includes(sTarget.id);
+                  const kIsSuperPrio = RIGGED_CONFIG.superPrioritySeats?.includes(k);
+                  const moveIdxIsSuperPrio = RIGGED_CONFIG.superPrioritySeats?.includes(moveIdx);
+                  
+                  if (isMoveSuperPrio && !kIsSuperPrio) return false; // Super prio dilarang keluar kandang
+                  if (!isMoveSuperPrio && isTargetSuperPrio && !moveIdxIsSuperPrio) return false; // Non-super dilarang maling kursi super
+
+                  // Cek Priority Biasa
                   const isMovePrio = priorityIds.includes(moveStudent.id);
                   const isTargetPrio = priorityIds.includes(sTarget.id);
                   
