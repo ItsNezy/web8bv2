@@ -95,6 +95,16 @@ function isAdjacent(idx1: number, idx2: number, radiusMode: boolean) {
   return Math.abs(row1 - row2) <= 1 && Math.abs(col1 - col2) <= 1;
 }
 
+// Helper function buat ngacak array (karena bawaan JS .sort random itu bias parah)
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export function generateKocokan(priorityIds: number[], forceRigged: boolean = false, customPlacements?: Record<number, number>, pairsProbability: number = 1) {
   const debugLog: string[] = [];
   const log = (msg: string) => debugLog.push(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
@@ -143,7 +153,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
       }
 
       // Terapkan Pairs (Pasangan Duduk)
-      const pairsToPlace = [...RIGGED_CONFIG.pairs].sort(() => Math.random() - 0.5);
+      const pairsToPlace = shuffleArray([...RIGGED_CONFIG.pairs]);
       for (const [id1, id2] of pairsToPlace) {
         const isPriorityPair = priorityIds.includes(id1) || priorityIds.includes(id2);
 
@@ -166,8 +176,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
           }
         }
 
-        // FIX: Shuffle emptyDesks biar gak bias ke index tertentu
-        emptyDesks.sort(() => Math.random() - 0.5);
+        emptyDesks = shuffleArray(emptyDesks);
 
         log(`Pairs [${id1},${id2}]: isPriority=${isPriorityPair}, emptyDesks=[${emptyDesks.join(',')}]`);
 
@@ -200,8 +209,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
   // 1.5 Taruh Super Prioritas
   if (RIGGED_CONFIG.enabled || forceRigged) {
     const superIds = RIGGED_CONFIG.superPriorityIds || [];
-    let availableSuperSeats = (RIGGED_CONFIG.superPrioritySeats || []).filter(i => seats[i] === null);
-    availableSuperSeats.sort(() => Math.random() - 0.5);
+    let availableSuperSeats = shuffleArray((RIGGED_CONFIG.superPrioritySeats || []).filter(i => seats[i] === null));
 
     for (const pid of superIds) {
       if (seats.some(s => s && s.id === pid)) continue; // Kalo udah ditaruh di tempat lain (placements)
@@ -222,9 +230,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
   const placedIds = new Set(seats.map(s => s?.id).filter(Boolean));
 
   // 2. Taruh Priority (yang belum ada di seats) ke Meja Prioritas
-  let frontAvailableIndices = [...PRIORITY_SEATS].filter(i => seats[i] === null);
-  // Shuffle frontAvailable
-  frontAvailableIndices.sort(() => Math.random() - 0.5);
+  let frontAvailableIndices = shuffleArray([...PRIORITY_SEATS].filter(i => seats[i] === null));
 
   const prioritiesToPlace = priorityIds.filter(pid => !placedIds.has(pid));
 
@@ -240,14 +246,14 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
 
   // 3. Taruh sisa as campur gender (1 Meja = Kiri Kanan)
   const remainingStudents = students.filter(s => !placedIds.has(s.id));
-  const remainingBoys = remainingStudents.filter(s => s.gender === 'L').sort(() => Math.random() - 0.5);
-  const remainingGirls = remainingStudents.filter(s => s.gender === 'P').sort(() => Math.random() - 0.5);
+  const remainingBoys = shuffleArray(remainingStudents.filter(s => s.gender === 'L'));
+  const remainingGirls = shuffleArray(remainingStudents.filter(s => s.gender === 'P'));
 
   // Semua index meja: [0,1], [2,3], ... [30,31]
-  const desks = [];
+  let desks = [];
   for (let i = 0; i < 32; i += 2) desks.push([i, i + 1]);
   // Shuffle urutan nempati meja
-  desks.sort(() => Math.random() - 0.5);
+  desks = shuffleArray(desks);
 
   for (const [leftIdx, rightIdx] of desks) {
     // Kalau kiri kosong
@@ -378,7 +384,7 @@ export function generateKocokan(priorityIds: number[], forceRigged: boolean = fa
                 // FIX: Acak urutan pencarian biar gak selalu pilih orang yang sama!
                 // Tanpa ini, Ekklesia (16) selalu kepilih karena dia cowok pertama
                 // yang bukan musuh Anin di loop k=0..31
-                const searchOrder = Array.from({ length: 32 }, (_, i) => i).sort(() => Math.random() - 0.5);
+                const searchOrder = shuffleArray(Array.from({ length: 32 }, (_, i) => i));
 
                 // PRIORITAS 1: Cari orang GENDER SAMA yang BUKAN musuh & BUKAN protected & posisi AMAN
                 for (const k of searchOrder) {
